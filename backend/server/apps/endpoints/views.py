@@ -5,9 +5,6 @@ from rest_framework import viewsets, mixins, exceptions
 
 from apps.endpoints import models
 from apps.endpoints import serializers
-# from .models import MLAlgorithm, MLAlgorithmStatus
-# from .serializers import MLAlgorithmSerializer
-# from .serializers import EndpointSerializer
 
 # Create your views here.
 class EndpointViewSet(
