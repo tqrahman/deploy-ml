@@ -114,7 +114,7 @@ class PredictView(views.APIView):
         #         status=status.HTTP_400_BAD_REQUEST,
         #     )
 
-        alg_index = int(algorithm_id)
+        alg_index = 0
 
         if algorithm_status == "ab_testing":
             alg_index = 0 if rand() < 0.5 else 1
