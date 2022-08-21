@@ -110,22 +110,24 @@ class PredictView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # # Check to see if there are more than one algorithms
-        # if len(algs) != 1 and algorithm_status != "ab_testing":
-        #     return Response(
-        #         {"status": "Error", "message": "ML algorithm selection is ambiguous. Please specify algorithm version."},
-        #         status=status.HTTP_400_BAD_REQUEST,
-        #     )
+        # Check to see if there are more than one algorithms
+        if len(algs) != 1 and algorithm_status != "ab_testing":
+            return Response(
+                {"status": "Error", "message": "ML algorithm selection is ambiguous. Please specify algorithm version."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         alg_index = 0
 
         if algorithm_status == "ab_testing":
             alg_index = 0 if rand() < 0.5 else 1
 
+        print(f"This is {algs[alg_index].id}")
         # Extracting the algorithm
         algorithm_object = registry.endpoints[algs[alg_index].id]
 
         # Get the prediction of the given data
+        print(request.data)
         prediction = algorithm_object.compute_prediction(request.data)
 
         # Extracting the label from prediction object
@@ -146,7 +148,7 @@ class PredictView(views.APIView):
         return Response(prediction)
 
 class ABTestViewSet(
-    mixins.RetrieveModelMixin, mixins.ListModelMixin, mixins.GenericViewSet,
+    mixins.RetrieveModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet,
     mixins.CreateModelMixin, mixins.UpdateModelMixin
 ):
     # Unpacking request into JSON format

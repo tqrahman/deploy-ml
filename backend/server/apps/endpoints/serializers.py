@@ -57,7 +57,8 @@ class MLAlgorithmStatusSerializer(serializers.ModelSerializer):
 class MLRequestSerializer(serializers.ModelSerializer):
     class Meta:
         '''
-        feedback field that is left in read and write mode - it will be needed to provide feedback about predictions to the server
+        feedback field that is left in read and write mode 
+        it will be needed to provide feedback about predictions to the server
         '''
         model = MLRequest
         read_only_fields = (
