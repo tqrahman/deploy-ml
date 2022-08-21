@@ -7,7 +7,8 @@ from rest_framework import viewsets, mixins, exceptions, views, status
 from rest_framework.response import Response
 
 from multiprocessing import parent_process
-from .models import MLAlgorithm, MLRequest
+# from .models import ABTest
+# from .models import MLAlgorithm, MLRequest, ABTest
 
 from server.wsgi import registry
 from apps.endpoints import models
@@ -54,7 +55,7 @@ class MLAlgorithmStatusViewSet(
     def perform_create(self, serializer):
         try:
             with transaction.atomic():
-                instance = serializers.save(active=True)
+                instance = serializer.save(active=True)
                 # set active=False for other statuses
                 deactivate_other_statuses(instance)
 
@@ -87,7 +88,7 @@ class PredictView(views.APIView):
         # Getting the id
         algorithm_id = self.request.query_params.get("id")
 
-        algs = MLAlgorithm.objects.filter(
+        algs = models.MLAlgorithm.objects.filter(
             parent_endpoint__name=endpoint_name,
             status__status=algorithm_status,
             status__active=True 
@@ -129,7 +130,7 @@ class PredictView(views.APIView):
         label = prediction["label"] if "label" in prediction else "error"
 
         # Save the request to apply ML algorithm
-        ml_request = MLRequest(
+        ml_request = models.MLRequest(
             input_data=json.dumps(request.data),
             full_response=prediction,
             response=label,
@@ -141,3 +142,49 @@ class PredictView(views.APIView):
         prediction["request_id"] = ml_request.id
 
         return Response(prediction)
+
+class ABTestViewSet(
+    mixins.RetrieveModelMixin, mixins.ListModelMixin, mixins.GenericViewSet,
+    mixins.CreateModelMixin, mixins.UpdateModelMixin
+):
+    # Unpacking request into JSON format
+    serializer_class = serializers.ABTestSerializer
+    
+    # Getting all the ABTest objects
+    queryset = models.ABTest.objects.all()
+
+    def perform_create(self, serializer):
+        '''
+        Creates an ABTest object and two new statuses ("ab_testing") 
+        for ML Algorithms
+        '''
+        try:
+            with transaction.atomic():
+                instance = serializer.save()
+
+                # Update status for first algorithm
+                status_1 = models.MLAlgorithmStatus(
+                    status='ab_testing',
+                    created_by=instance.created_by,
+                    parent_mlalgorithm=instance.parent_mlalgorithm_1,
+                    active=True
+                )
+
+                status_1.save()
+                deactivate_other_statuses(status_1)
+                
+                # Update status for second algorithm
+                status_2 = models.MLAlgorithmStatus(
+                    status='ab_testing',
+                    created_by=instance.created_by,
+                    parent_mlalgorithm=instance.parent_mlalgorithm_2,
+                    active=True
+                )
+
+                status_2.save()
+                deactivate_other_statuses(status_2)
+        
+        except Exception as e:
+            raise exceptions.APIException(str(e))
+
+

@@ -1,11 +1,14 @@
 # Imports
 
 from rest_framework import serializers
-from apps.endpoints.models import Endpoint, MLAlgorithm, MLAlgorithmStatus, MLRequest
+from apps.endpoints.models import Endpoint, MLAlgorithm, MLAlgorithmStatus, MLRequest, ABTest
 
 '''
 serializers: define how database objects are mapped in requests
 * helps with packing and unpacking database objects into JSON objects
+* allow complex data such as querysets and model instances to be 
+  converted to native Python datatypes that can then be easily rendered 
+  into JSON, XML or other content types. 
 '''
 
 class EndpointSerializer(serializers.ModelSerializer):
@@ -75,3 +78,23 @@ class MLRequestSerializer(serializers.ModelSerializer):
             "created_at",
             "parent_mlalgorithm",
         )
+
+class ABTestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ABTest
+        read_only_fields = (
+            "id",
+            "ended_at",
+            "created_at",
+            "summary",
+        )
+        fields = (
+            "id",
+            "title",
+            "created_by",
+            "created_at",
+            "ended_at",
+            "summary",
+            "parent_mlalgorithm_1",
+            "parent_mlalgorithm_2",
+            )
