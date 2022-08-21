@@ -19,10 +19,10 @@ class MLRegistry:
         algorithm_code
     ):
         
-        # Get endpoint
+        # Create an endpoint
         endpoint, _ = Endpoint.objects.get_or_create(name=endpoint_name, owner=owner)
 
-        # Get algorithm
+        # Create an algorithm
         database_object, algorithm_created = MLAlgorithm.objects.get_or_create(
             name=algorithm_name,
             description=algorithm_description,
@@ -31,7 +31,11 @@ class MLRegistry:
             owner=owner,
             parent_endpoint=endpoint
         )
+
+        # If algorithm is created successfully
         if algorithm_created:
+
+            # Create a status
             status = MLAlgorithmStatus(
                 status=algorithm_status,
                 created_by=owner,
@@ -39,6 +43,8 @@ class MLRegistry:
                 active=True
             )
             
+            # Save the status
             status.save()
 
+        # Store the id and algorithm in the endpoint object
         self.endpoints[database_object.id] = algorithm_object
