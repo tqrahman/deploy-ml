@@ -1,8 +1,10 @@
 import json
 from numpy.random import rand
+import datetime
 
 from django.shortcuts import render
 from django.db import transaction
+from django.db.models import F
 from rest_framework import viewsets, mixins, exceptions, views, status
 from rest_framework.response import Response
 
@@ -187,4 +189,102 @@ class ABTestViewSet(
         except Exception as e:
             raise exceptions.APIException(str(e))
 
+class StopABTestView(views.APIView):
+    '''
+    Stops the A/B test, computes the accuracy of the two algorithms, and 
+    compares the two algorithms. The algorithm with the higher accuracy
+    is set as production while the other algorithm is saved as testing 
+    '''
+    def post(self, request, ab_test_id, format=None):
+        
+        try:
+            # Get the ABTest object that matches the id
+            ab_test = models.ABTest.objects.get(pk=ab_test_id)
 
+            if ab_test.ended_at is None:
+                return Response({
+                    "message":"AB Test already finished."
+                })
+            
+            date_now = datetime.datetime.now()
+
+            # Algorithm 1
+            
+            all_responses_1 = models.MLRequest.objects.filter(
+                parent_algorithm=ab_test.parent_mlalgorithm_1,
+                created_at__gt=ab_test.created_at,
+                created_at__lt=date_now,
+            ).count()
+
+            correct_responses_1 = models.MLRequest.objects.filter(
+                parent_algorithm=ab_test.parent_mlalgorithm_1,
+                created_at__gt=ab_test.created_at,
+                created_at__lt=date_now,
+                response=F('feedback')
+            ).count()
+
+            accuracy_1 = correct_responses_1 / float(all_responses_1)
+
+            print(all_responses_1, correct_responses_1, accuracy_1)
+
+            # Algorithm 2
+
+            all_responses_2 = models.MLRequest.objects.filter(
+                parent_mlalgorithm=ab_test.parent_mlalgorithm_2, 
+                created_at__gt = ab_test.created_at, 
+                created_at__lt = date_now
+            ).count()
+
+            correct_responses_2 = models.MLRequest.objects.filter(
+                parent_mlalgorithm=ab_test.parent_mlalgorithm_2, 
+                created_at__gt = ab_test.created_at, 
+                created_at__lt = date_now, 
+                response=F('feedback')
+            ).count()
+
+            accuracy_2 = correct_responses_2 / float(all_responses_2)
+            
+            print(all_responses_2, correct_responses_2, accuracy_2)
+
+            # Select the algorithm with higher accuracy
+            
+            alg_id_1, alg_id_2 = ab_test.parent_mlalgorithm_1, ab_test.parent_mlalgorithm_2
+            
+            # Swap
+            if accuracy_1 < accuracy_2:
+                alg_id_1, alg_id_2 = alg_id_2, alg_id_1
+            
+            # Update status of selected algorithm
+            status_1 = models.MLAlgorithmStatus(status = "production",
+                            created_by=ab_test.created_by,
+                            parent_mlalgorithm = alg_id_1,
+                            active=True)
+            status_1.save()
+            deactivate_other_statuses(status_1)
+            
+            # Update status for second algorithm
+            status_2 = models.MLAlgorithmStatus(status = "testing",
+                            created_by=ab_test.created_by,
+                            parent_mlalgorithm = alg_id_2,
+                            active=True)
+            status_2.save()
+            deactivate_other_statuses(status_2)
+
+            summary = "Algorithm #1 accuracy: {}, Algorithm #2 accuracy: {}".format(accuracy_1, accuracy_2)
+            ab_test.ended_at = date_now
+            ab_test.summary = summary
+            ab_test.save()
+
+        except Exception as e:
+            return Response(
+                {
+                    "status":"Error",
+                    "message":str(e),
+                }, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response({
+            "message":"AB Test finished.",
+            "summary":summary
+        })
